@@ -76,6 +76,10 @@ float calcularNotaFinal(float funcionalidad, float defensa, float penalizacion) 
 
     return nota;
 }
+
+
+
+
 Prueba de solcion Pequenia
 <img width="593" height="335" alt="image" src="https://github.com/user-attachments/assets/28157ce9-6291-45ff-8678-6482bee3881a" />
 
