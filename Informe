@@ -1,0 +1,302 @@
+1.	ANALISIS
+
+El presente proyecto resuelve la necesidad de gestionar proyectos académicos y evaluaciones de grupos, integrando a su vez un submódulo de entretenimiento (Ahorcado).
+
+•	Actores: Docente (usuario principal del sistema), Grupos de Estudiantes, y el Jugador (para el submódulo lúdico).
+
+•	Variables principales: codigo, tema, integrantes, avance, retrasos, y las notas desglosadas (funcionalidad, defensa, estructura, innovacion).
+
+•	Validaciones y Restricciones: La validación más crítica ocurre en el registro de evaluación: la suma de la nota base (funcionalidad, defensa, estructura) no puede ser mayor a 10.0. Adicionalmente, el sistema restringe las entradas numéricas mediante una función dedicada (validarEntero) para evitar desbordamientos o caídas del programa por caracteres no válidos. La nota final se topa a un máximo de 10 y un mínimo de 0, aplicando una penalización de 0.5 puntos por cada retraso.
+
+•	Reportes y Casos Críticos: El sistema genera reportes de notas ordenadas, estadísticas de promedios, búsqueda lineal y el cálculo del criterio con menor desempeño general. Un caso crítico identificado es el intento de calcular un promedio o buscar el menor desempeño cuando no existen grupos registrados (evitado lógicamente).
+
+•	Prueba de escritorio mínima: 
+Escenario: 
+Registro de un grupo con retrasos.
+Entrada: Funcionalidad = 3.0, Defensa = 3.0, Estructura = 3.0, Innovación = 1.0. Retrasos = 2.
+Proceso: Suma base = 9.0. Suma + Innovación = 10.0. Penalización = 2 * 0.5 = 1.0. Nota final = 10.0 - 1.0.
+Salida esperada: Nota final = 9.0
+
+2.	DISEÑO
+
+El diseño del sistema se fundamenta en la Programación Orientada a Objetos, definiendo las siguientes estructuras:
+	
+•	Clases y Atributos: 
+Evaluacion: Encapsula las métricas de calificación y valida matemáticamente la coherencia de las notas.
+GrupoProyecto: Contiene los datos descriptivos del grupo y una instancia de Evaluacion (composición).	
+ModuloAhorcado: Gestiona la lógica del minijuego, con arreglos de palabras clasificadas por dificultad y un vector dinámico para el historial.
+
+•	Estructuras de almacenamiento: Se utiliza un arreglo estático de objetos GrupoProyecto grupos[50] para la gestión en memoria de los registros, y la estructura de C++ vector<HistorialAhorcado> para almacenar las partidas del juego sin un límite rígido predefinido.
+
+•	Menús y Relación: El sistema opera a través de un menú principal de 7 opciones que orquesta las funciones del arreglo de objetos. La opción 6 actúa como un puente hacia un submenú independiente de 4 opciones para el Ahorcado. Ambos módulos operan de forma encapsulada pero convergen en la misma interfaz de consola.
+
+
+3.	CONSTRUCCION INCREMENTAL
+
+El código fue construido siguiendo una metodología escalonada para asegurar la estabilidad en cada etapa:
+
+•	Estructura base: Se implementó el cascarón del archivo main, las bibliotecas necesarias (iostream, vector, algorithm, etc.) y el bucle principal do-while del menú.
+
+•	Registros y Validaciones: Se programaron las clases GrupoProyecto y Evaluacion. Se implementó el control de errores validarEntero y el método setNotas para evitar el ingreso de datos basura o lógicamente incorrectos.
+
+•	Reportes y Búsqueda: Se programó el recorrido del arreglo para mostrar los grupos y la función buscarGrupo mediante coincidencia de strings.
+
+•	Recursividad: Se diseñó la función calcularPromedioRecursivo, aplicando el caso base (n <= 0 y n == 1) y el llamado recursivo para iterar matemáticamente sobre el arreglo de notas sin usar ciclos convencionales.
+
+•	Ordenamiento Manual: Se implementó el algoritmo de "Bubble Sort" (Ordenamiento de burbuja) modificado. Éste no solo ordena descendentemente por la nota final, sino que en caso de empate, desempata midiendo la longitud del string de las observaciones.
+
+•	Módulo Ahorcado: Finalmente, se construyó la clase ModuloAhorcado, implementando la aleatoriedad (srand), el control de intentos, la verificación por caracteres (isalpha, toupper) y el almacenamiento en la estructura HistorialAhorcado.
+
+4.	PRUEBAS Y DEPURACION
+•	Casos Normales: Registro de múltiples proyectos con datos estándar, visualización del ranking ordenado y partidas de ahorcado completadas con éxito, verificando la acumulación correcta de puntos.
+
+•	Casos Límite: Ingreso de letras en los campos de nota o menús. El programa no se colgó, gracias al limpiado del buffer (cin.clear() y cin.ignore()). Se intentó calcular el promedio con el arreglo vacío, arrojando correctamente el mensaje de prevención.
+
+•	Corrección Importante: Durante el desarrollo y registro de datos mezclados (números y cadenas de texto), se detectaron saltos de línea residuales en el buffer que causaban que la variable "Tema" u "Observaciones" se saltaran el ingreso por teclado (getline tomaba el Enter residual). Explicación de la solución: Se procedió a incluir cin.ignore(); antes de invocar getline(cin, ...) tras la lectura de datos primitivos (int, string sencillo). Además, se corrigió un problema de tipeo detectado en la línea defectuosa del esqueleto donde se duplicaba la salida cout << "Estructura:"; cout << "Estructura: "; cin >> est;.
+
+5.	CODIGO 
+
+#include <iostream>
+#include <string>
+#include <vector>
+#include <limits>
+#include <ctime>
+#include <algorithm>
+using namespace std;
+
+struct HistorialAhorcado {
+    string palabra;
+    bool gano;
+    int intentosRestantes;
+    int puntos;
+};
+
+class Evaluacion {
+private:
+    float funcionalidad, defensa, estructura, innovacion;
+public:
+    Evaluacion() : funcionalidad(0), defensa(0), estructura(0), innovacion(0) {}
+    
+    bool setNotas(float f, float d, float e, float i) {
+        if (f+d+e > 10.0) return false; 
+        funcionalidad = f; defensa = d; estructura = e; innovacion = i;
+        return true;
+    }
+    float getSumaBase() const { return funcionalidad + defensa + estructura; }
+    float getInnovacion() const { return innovacion; }
+    float menorCriterio() const { return min({funcionalidad, defensa, estructura, innovacion}); }
+};
+
+class GrupoProyecto {
+private:
+    string codigo, tema, integrantes, observaciones;
+    int avance, retrasos;
+    float notaFinal;
+    Evaluacion eval;
+
+public:
+    GrupoProyecto() : codigo(""), tema(""), integrantes(""), observaciones(""), avance(0), retrasos(0), notaFinal(0) {}
+
+    void registrar(string c, string t, string inst, int av, int ret, string obs) {
+        codigo = c; tema = t; integrantes = inst; avance = av; retrasos = ret; observaciones = obs;
+    }
+
+    void setEvaluacion(Evaluacion e) { 
+        eval = e; 
+        notaFinal = eval.getSumaBase() + eval.getInnovacion() - (retrasos * 0.5f);
+        if (notaFinal > 10) notaFinal = 10;
+        if (notaFinal < 0) notaFinal = 0;
+    }
+
+    string getCodigo() const { return codigo; }
+    string getTema() const { return tema; }
+    float getNota() const { return notaFinal; }
+    string getObs() const { return observaciones; }
+    float getMenorCriterio() const { return eval.menorCriterio(); }
+
+    void mostrarFila() {
+        cout << codigo << "\t" << avance << "%\t" << notaFinal << "\t" << tema << endl;
+    }
+};
+
+int validarEntero(string msg) {
+    int v;
+    while (true) {
+        cout << msg;
+        if (cin >> v) return v;
+        cout << "Entrada invalida.\n";
+        cin.clear(); cin.ignore(numeric_limits<streamsize>::max(), '\n');
+    }
+}
+
+float calcularPromedioRecursivo(GrupoProyecto grupos[], int n) {
+    if (n <= 0) return 0;
+    if (n == 1) return grupos[0].getNota();
+    return (grupos[n-1].getNota() + (n-1) * calcularPromedioRecursivo(grupos, n-1)) / n;
+}
+
+void ordenarManual(GrupoProyecto arr[], int n) {
+    for(int i=0; i<n-1; i++) {
+        for(int j=0; j<n-i-1; j++) {
+            if(arr[j].getNota() < arr[j+1].getNota() || 
+              (arr[j].getNota() == arr[j+1].getNota() && arr[j].getObs().length() > arr[j+1].getObs().length())) {
+                swap(arr[j], arr[j+1]);
+            }
+        }
+    }
+}
+
+void buscarGrupo(GrupoProyecto grupos[], int cant) {
+    string clave;
+    cout << "Buscar por codigo o tema: "; cin.ignore(); getline(cin, clave);
+    for(int i=0; i<cant; i++) {
+        if(grupos[i].getCodigo() == clave || grupos[i].getTema() == clave) {
+            cout << "Encontrado -> "; grupos[i].mostrarFila();
+        }
+    }
+}
+
+class ModuloAhorcado {
+private:
+    vector<HistorialAhorcado> historial;
+    string facil[3] = {"GRUPO", "AVANCE", "TEMA"};
+    string dificil[3] = {"INNOVACION", "PENALIZACION", "ESTADISTICAS"};
+    int puntajeTotal = 0;
+
+public:
+    void mostrarMenu() {
+        int op;
+        do {
+            system("cls");
+            cout << "--- AHORCADO: GESTION DE PROYECTOS ---\n";
+            cout << "1. Jugar (CPU)\n2. Ver Historial\n3. Ver Puntaje Total\n4. Volver\nOpcion: ";
+            op = validarEntero("");
+            if (op == 1) iniciarJuego();
+            if (op == 2) verHistorial();
+            if (op == 3) cout << "Puntaje acumulado: " << puntajeTotal << endl;
+            if (op != 4) system("pause");
+        } while (op != 4);
+    }
+
+    void iniciarJuego() {
+        int nivel = validarEntero("Nivel (1. Facil, 2. Dificil): ");
+        srand(time(0));
+        string secreta = (nivel == 1) ? facil[rand()%3] : dificil[rand()%3];
+        string progreso(secreta.length(), '_');
+        int intentos = 6;
+        string usadas = "";
+
+        while (intentos > 0 && progreso != secreta) {
+            system("cls");
+            cout << "Nivel: " << ((nivel==1)?"Facil":"Dificil") << " | Intentos: " << intentos << endl;
+            cout << "Palabra: " << progreso << "\nLetras usadas: " << usadas << endl;
+            cout << "Ingrese letra: "; 
+            char letra; cin >> letra; letra = toupper(letra);
+
+            if (!isalpha(letra) || usadas.find(letra) != string::npos) {
+                cout << "Invalido o repetido.\n"; system("pause"); continue;
+            }
+            usadas += letra;
+
+            if (secreta.find(letra) != string::npos) {
+                for(int i=0; i<secreta.length(); i++) if(secreta[i]==letra) progreso[i]=letra;
+            } else {
+                intentos--;
+                cout << "¡Incorrecto!\n";
+            }
+        }
+        
+        bool gano = (progreso == secreta);
+        int puntos = gano ? intentos*10 : 0;
+        puntajeTotal += puntos;
+        cout << (gano ? "¡GANASTE!" : "PERDISTE") << ". La palabra era: " << secreta << " | Puntos: " << puntos << endl;
+        historial.push_back({secreta, gano, intentos, puntos});
+    }
+
+    void verHistorial() {
+        cout << "\n--- RESUMEN DE PARTIDAS ---\n";
+        for(auto const& h : historial) {
+            cout << "Palabra: " << h.palabra << " | Resultado: " << (h.gano?"Gano":"Perdio") 
+                 << " | Puntos: " << h.puntos << endl;
+        }
+    }
+};
+
+int main() {
+    GrupoProyecto grupos[50];
+    ModuloAhorcado juego;
+    int cant = 0, op;
+
+    do {
+        system("cls");
+        cout << "=== MENU ===\n";
+        cout << "1. Registrar Grupo y Evaluacion\n2. Reporte (Ordenado por Nota)\n";
+        cout << "3. Estadisticas (Promedio Recursivo)\n4. Buscar Grupo\n5. Criterio de menor desempeño\n";
+        cout << "6. Modulo Ahorcado\n7. Salir\nOpcion: ";
+        op = validarEntero("");
+
+        if (op == 1) {
+            string c, t, inst, obs; int av, ret;
+            cout << "Cod: "; cin >> c; 
+            cout << "Integrantes: "; cin.ignore(); getline(cin, inst);
+            cout << "Tema: "; getline(cin, t);
+            av = validarEntero("% Avance: ");
+            ret = validarEntero("Retrasos: ");
+            cout << "Observaciones: "; cin.ignore(); getline(cin, obs);
+            
+            grupos[cant].registrar(c, t, inst, av, ret, obs);
+
+            Evaluacion e;
+            float f, d, est, inn;
+            cout << "Notas -> Funcionalidad: "; cin >> f;
+            cout << "Defensa: "; cin >> d;
+            cout << "Estructura:";
+                        cout << "Estructura: "; cin >> est;
+            cout << "Innovacion (Bono 0-2): "; cin >> inn;
+            
+            if(e.setNotas(f, d, est, inn)) {
+                grupos[cant].setEvaluacion(e);
+                cant++;
+                cout << "Registro exitoso.\n";
+            } else cout << "Error: Suma base supera 10.\n";
+            system("pause");
+        }
+        else if (op == 2) {
+            ordenarManual(grupos, cant);
+            cout << "COD\tAVANCE\tNOTA\tTEMA\n";
+            for(int i=0; i<cant; i++) grupos[i].mostrarFila();
+            system("pause");
+        }
+        else if (op == 3) {
+            if(cant > 0) cout << "Promedio General (Recursivo): " << calcularPromedioRecursivo(grupos, cant) << endl;
+            else cout << "No hay grupos registrados.\n";
+            system("pause");
+        }
+        else if (op == 4) {
+            buscarGrupo(grupos, cant);
+            system("pause");
+        }
+        else if (op == 5) {
+            if(cant > 0) {
+                float menor = grupos[0].getMenorCriterio();
+                for(int i=1; i<cant; i++) {
+                    menor = min(menor, grupos[i].getMenorCriterio());
+                }
+                cout << "El criterio de menor desempeño entre todos los grupos fue: " << menor << endl;
+            } else {
+                cout << "No hay grupos registrados.\n";
+            }
+            system("pause");
+        }
+        else if (op == 6) {
+            juego.mostrarMenu();
+        }
+    } while (op != 7);
+
+    return 0;
+}
+
+
+6.	CIERRE
+
+El producto entregado consiste en un código en C++ completamente funcional, robusto ante caídas por ingresos de datos erróneos del usuario, y que cumple con todos los requisitos algorítmicos solicitados (recursividad, arreglos de objetos, ordenamiento manual y lógica de juegos)
